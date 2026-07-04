@@ -72,34 +72,20 @@ from wbb.utils.functions import (
 
 __MODULE__ = "Greetings"
 __HELP__ = """
-/captcha [ENABLE|DISABLE] - Enable/Disable captcha.
+/captcha [ENABLE|DISABLE] - تفعيل أو تعطيل نظام الكابتشا للأعضاء الجدد.
 
-/set_welcome - Reply this to a message containing correct
-format for a welcome message, check end of this message.
+/set_welcome - قم بالرد على رسالة ترحيبية لحفظها للمجموعة (راجع التنسيق في الأسفل).
 
-/del_welcome - Delete the welcome message.
-/get_welcome - Get the welcome message.
+/del_welcome - حذف رسالة الترحيب الخاصة بالمجموعة.
+/get_welcome - عرض رسالة الترحيب الحالية للمجموعة.
 
-**SET_WELCOME ->**
+**تنسيق رسالة الترحيب (SET_WELCOME) ->**
 
-**To set a photo or gif as welcome message. Add your welcome message as caption to the photo or gif. The caption muse be in the format given below.**
+**لتعيين صورة أو متحركة (GIF) كرسالة ترحيب، أضف النص كـ كابشن (Caption) على الصورة أو المتحركة بالتنسيق التالي:**
 
-For text welcome message just send the text. Then reply with the command 
+أما للترحيب النصي فقط، أرسل النص ثم قم بالرد عليه بالأمر.
 
-The format should be something like below.
-
-```
-**Hi** {name} [{id}] Welcome to {chat}
-
-~ #This separater (~) should be there between text and buttons, remove this comment also
-
-button=[Duck, https://duckduckgo.com]
-button2=[Github, https://github.com]
-```
-
-**NOTES ->**
-
-Checkout /markdownhelp to know more about formattings and other syntax.
+مثال للتنسيق المدعوم:
 """
 
 answers_dicc = []
@@ -134,15 +120,14 @@ async def handle_new_member(member, chat):
                 await chat.ban_member(member.id)
                 return await app.send_message(
                     chat.id,
-                    f"**User {member.mention} was Fed Banned.\n\nReason: {reason}.\nDate: {date}.**",
+                    f"**❌ العضو {member.mention} محظور من نظام الفيد (Fed Banned).\n\nالسبب: {reason}.\nالتاريخ: {date}.**",
                 )
         if await is_gbanned_user(member.id):
             await chat.ban_member(member.id)
             await app.send_message(
                 chat.id,
-                f"{member.mention} was globally banned, and got removed,"
-                + " if you think this is a false gban, you can appeal"
-                + " for this ban in support chat.",
+                f"⚠️ تم طرد {member.mention} لأنه محظور عام (Globally Banned) من السورس.\n"
+                + "إذا كان هذا الحظر بالخطأ، يمكنك تقديم طلب فك حظر في جروب الدعم الخاص بنا.",
             )
             return
         if member.is_bot:
@@ -152,16 +137,15 @@ async def handle_new_member(member, chat):
                 chat, member.id
             )
 
-        # Ignore user if he has already solved captcha in this group
-        # someday
+        # Ignore user if he has already solved captcha in this group someday
         if await has_solved_captcha_once(chat.id, member.id):
             return
 
         await chat.restrict_member(member.id, ChatPermissions())
         text = (
-            f"{(member.mention())} Are you human?\n"
-            f"Solve this captcha in {WELCOME_DELAY_KICK_SEC} "
-            "seconds and 4 attempts or you'll be kicked."
+            f"⚠️ **العضو الجديد:** {member.mention}\n\n"
+            f"يرجى إثبات أنك لست روبوت وحل الكابتشا في خلال **{WELCOME_DELAY_KICK_SEC}** ثانية "
+            f"ومعاك **4 محاولات فقط**، وإلا سيتم طردك تلقائياً من المجموعة! 🚷"
         )
     except ChatAdminRequired:
         return
@@ -320,14 +304,15 @@ async def callback_query_welcome_button(_, callback_query):
 
     if not (correct_answer and keyboard):
         return await callback_query.answer(
-            "Something went wrong, Rejoin the " "chat!"
+            "❌ حدث خطأ ما! يرجى مغادرة الجروب والدخول مرة أخرى لإعادة التحقق.",
+            show_alert=True
         )
 
     if pending_user_id != pressed_user_id:
-        return await callback_query.answer("This is not for you")
+        return await callback_query.answer("❌ الأمر مش ليك يا حب، هذا الزر خاص بالعضو الجديد فقط! 🚷", show_alert=True)
 
     if answer != correct_answer:
-        await callback_query.answer("Yeah, It's Wrong.")
+        await callback_query.answer("❌ إجابة خاطئة! ركز وجرب تاني قبل انتهاء المحاولات والوقت.", show_alert=True)
         for iii in answers_dicc:
             if (
                 iii["user_id"] == pending_user_id
@@ -355,7 +340,7 @@ async def callback_query_welcome_button(_, callback_query):
             reply_markup=keyboard,
         )
 
-    await callback_query.answer("Captcha passed successfully!")
+    await callback_query.answer("✅ تم التحقق بنجاح! منور الجروب يا غالي وجاري تفعيل صلاحياتك الآن 😍", show_alert=True)
     await button_message.chat.unban_member(pending_user_id)
     await button_message.delete()
 
@@ -370,8 +355,7 @@ async def callback_query_welcome_button(_, callback_query):
 
     chat = callback_query.message.chat
 
-    # Save this verification in db, so we don't have to
-    # send captcha to this user when he joins again.
+    # Save this verification in db, so we don't have to send captcha to this user when he joins again.
     await save_captcha_solved(chat.id, pending_user_id)
 
     return await send_welcome_message(chat, pending_user_id, True)
@@ -411,7 +395,7 @@ async def _ban_restricted_user_until_date(
 @app.on_message(filters.command("captcha") & ~filters.private)
 @adminsOnly("can_restrict_members")
 async def captcha_state(_, message):
-    usage = "**Usage:**\n/captcha [ENABLE|DISABLE]"
+    usage = "⚙️ **طريقة الاستخدام:**\n/captcha [ENABLE|DISABLE]"
     if len(message.command) != 2:
         return await message.reply_text(usage)
 
@@ -420,10 +404,16 @@ async def captcha_state(_, message):
     state = state.lower()
     if state == "enable":
         await captcha_on(chat_id)
-        await message.reply_text("Enabled Captcha For New Users.")
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛡️ نظام الحماية مفعل", callback_data="status_verified")]
+        ])
+        await message.reply_text("✅ **تم تفعيل نظام الكابتشا والتحقق للأعضاء الجدد في المجموعة بنجاح!**", reply_markup=keyboard)
     elif state == "disable":
         await captcha_off(chat_id)
-        await message.reply_text("Disabled Captcha For New Users.")
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔓 نظام الحماية معطل", callback_data="status_verified")]
+        ])
+        await message.reply_text("🔓 **تم تعطيل نظام الكابتشا، يمكن للأعضاء الجدد الدخول بدون تحقق.**", reply_markup=keyboard)
     else:
         await message.reply_text(usage)
 
@@ -434,12 +424,12 @@ async def captcha_state(_, message):
 @app.on_message(filters.command("set_welcome") & ~filters.private)
 @adminsOnly("can_change_info")
 async def set_welcome_func(_, message):
-    usage = "You need to reply to a text, gif or photo to set it as greetings.\n\nNotes: caption required for gif and photo."
+    usage = "⚠️ **يجب الرد على (نص، أو صورة، أو متحركة GIF) لتعيينها كرسالة ترحيب للمجموعة.**\n\nملحوظة: الكابشن مطلوب في حالة الصور والمتحركات."
     key = InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    text="More Help",
+                    text="📖 دليل التنسيق والمساعدة",
                     url=f"t.me/{BOT_USERNAME}?start=help_greetings",
                 )
             ],
@@ -481,16 +471,16 @@ async def set_welcome_func(_, message):
         if raw_text:
             await set_welcome(chat_id, welcome, raw_text, file_id)
             return await message.reply_text(
-                "Welcome message has been successfully set."
+                "⚙️ **تم حفظ وتعيين رسالة الترحيب الخاصة بالمجموعة بنجاح!**"
             )
         else:
             return await message.reply_text(
-                "Wrong formatting, check the help section.\n\n**Usage:**\nText: `Text`\nText + Buttons: `Text ~ Buttons`",
+                "❌ **خطأ في التنسيق! يرجى مراجعة دليل المساعدة.**\n\n**الاستخدام الصحيح:**\nنص فقط: `Text`\nنص وأزرار: `Text ~ Buttons`",
                 reply_markup=key,
             )
     except UnboundLocalError:
         return await message.reply_text(
-            "**Only Text, Gif and Photo welcome message are supported.**"
+            "⚠️ **البوت يدعم فقط (النصوص، الصور، والمتحركات GIF) في رسائل الترحيب.**"
         )
 
 
@@ -499,7 +489,7 @@ async def set_welcome_func(_, message):
 async def del_welcome_func(_, message):
     chat_id = message.chat.id
     await del_welcome(chat_id)
-    await message.reply_text("Welcome message has been deleted.")
+    await message.reply_text("🗑️ **تم حذف رسالة الترحيب الخاصة بالمجموعة بنجاح.**")
 
 
 @app.on_message(filters.command("get_welcome") & ~filters.private)
@@ -508,14 +498,14 @@ async def get_welcome_func(_, message):
     chat = message.chat
     welcome, raw_text, file_id = await get_welcome(chat.id)
     if not raw_text:
-        return await message.reply_text("No welcome message set.")
+        return await message.reply_text("❌ لا توجد رسالة ترحيب معينة لهذه المجموعة حتى الآن.")
     if not message.from_user:
         return await message.reply_text(
-            "You're anon, can't send welcome message."
+            "⚠️ حسابك مخفي (Anon Admin)، لا يمكن إرسال رسالة الترحيب لك."
         )
 
     await send_welcome_message(chat, message.from_user.id)
 
     await message.reply_text(
-        f'Welcome: {welcome}\n\nFile_id: `{file_id}`\n\n`{raw_text.replace("`", "")}`'
+        f'📊 **نوع الترحيب:** {welcome}\n\n⚙️ **معرف الملف (File ID):** `{file_id}`\n\n📝 **النص الخام:**\n`{raw_text.replace("`", "")}`'
     )
