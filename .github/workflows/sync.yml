@@ -14,6 +14,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Clean Binary Files for HF
+        run: |
+          find . -type f -name "*.m4a" -delete
+          find . -type f -name "*.ttf" -delete
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add .
+          git diff-index --quiet HEAD || git commit -m "Clean binary files for Hugging Face deployment"
+
       - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
