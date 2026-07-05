@@ -18,17 +18,21 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # إنشاء ملف استثناء مؤقت لمنع رفع الصوت والخطوط نهائياً
-          echo "*.m4a" >> .git/info/exclude
-          echo "*.ttf" >> .git/info/exclude
+          # 1. حذف الملف الصوتي والخط نهائياً من النسخة الحالية لو وجدوا في أي مكان
+          find . -type f -name "*.m4a" -delete
+          find . -type f -name "*.ttf" -delete
           
-          # إزالة تتبع الملفات لو كانت متسيفة في الكاش عشان الـ exclude يشتغل مجبر
-          git rm --cached -r --ignore-unmatch .
-          git add .
+          # 2. تصفير الـ Git القديم وإنشاء تاريخ جديد ونضيف تماماً بدون مخلفات
+          rm -rf .git
+          git init
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          git commit -m "Ignore binaries for HF" --allow-empty
           
-          # الرفع الفعلي مجبر إلى Hugging Face
+          # 3. تحويل الفرع الافتراضي لـ dev متوافق مع السورس بتاعك
+          git checkout -b dev
+          git add .
+          git commit -m "Initial clean deploy to Hugging Face"
+          
+          # 4. الرفع الإجباري بقوة التصفير
           git remote add hf https://m7mddemo0o:$HF_TOKEN@huggingface.co/spaces/m7mddemo0o/sovereign-bot
           git push --force hf dev:main
