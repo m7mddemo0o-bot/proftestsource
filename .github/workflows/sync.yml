@@ -14,18 +14,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Clean Binary Files for HF
-        run: |
-          find . -type f -name "*.m4a" -delete
-          find . -type f -name "*.ttf" -delete
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add .
-          git diff-index --quiet HEAD || git commit -m "Clean binary files for Hugging Face deployment"
-
       - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          # إنشاء ملف استثناء مؤقت لمنع رفع الصوت والخطوط نهائياً
+          echo "*.m4a" >> .git/info/exclude
+          echo "*.ttf" >> .git/info/exclude
+          
+          # إزالة تتبع الملفات لو كانت متسيفة في الكاش عشان الـ exclude يشتغل مجبر
+          git rm --cached -r --ignore-unmatch .
+          git add .
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git commit -m "Ignore binaries for HF" --allow-empty
+          
+          # الرفع الفعلي مجبر إلى Hugging Face
           git remote add hf https://m7mddemo0o:$HF_TOKEN@huggingface.co/spaces/m7mddemo0o/sovereign-bot
           git push --force hf dev:main
