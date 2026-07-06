@@ -18,21 +18,21 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # 1. حذف الملف الصوتي والخط نهائياً من النسخة الحالية لو وجدوا في أي مكان
+          # 1. حذف الملف الصوتي والخط نهائياً لو وجدوا
           find . -type f -name "*.m4a" -delete
           find . -type f -name "*.ttf" -delete
           
-          # 2. تصفير الـ Git القديم وإنشاء تاريخ جديد ونضيف تماماً بدون مخلفات
+          # 2. تصفير الـ Git القديم وإنشاء تاريخ جديد متوافق مع الفرع الرئيسي
           rm -rf .git
           git init
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           
-          # 3. تحويل الفرع الافتراضي لـ dev متوافق مع السورس بتاعك
-          git checkout -b dev
+          # 3. البناء مباشرة على فرع main
+          git checkout -b main
           git add .
-          git commit -m "Initial clean deploy to Hugging Face"
+          git commit -m "Deploy to main branch on HF"
           
-          # 4. الرفع الإجباري بقوة التصفير
+          # 4. الرفع الإجباري لفرع main الرئيسي في Hugging Face
           git remote add hf https://m7mddemo0o:$HF_TOKEN@huggingface.co/spaces/m7mddemo0o/sovereign-bot
-          git push --force hf dev:main
+          git push --force hf main:main
